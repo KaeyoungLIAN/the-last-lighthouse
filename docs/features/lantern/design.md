@@ -1,5 +1,8 @@
 # 提灯战斗与村庄整备
 
+本页保留 v0.2 原型设计。v0.6.0 的终局和旧任务物料用途见[六区纹章与点灯结局](../lighthouse/design.md)。
+
+
 **Status:** in progress · 2026-11-23 · [设计总览](../../GDD.md) · [原型实现](implementation.md) · [验证记录](testing.md)
 
 [ASSUMPTION] 本篇的地点、取得方式、时间与数值均为首版设计提案，待原型试玩核对。

@@ -1,8 +1,7 @@
 extends Node3D
 
 const Art = preload("actor_art.gd")
-const COAT := "d89b35"
-const OILSKIN := "f2b848"
+const CAST := preload("res://art/cast/keeper.glb")
 const LEATHER := "754434"
 const NAVY := "263d4b"
 const BRASS := "e3b75d"
@@ -20,45 +19,37 @@ var scarf: MeshInstance3D
 var light: OmniLight3D
 var beam: SpotLight3D
 var step_phase := 0.0
+var slash_trail := MeshInstance3D.new()
 
 func _ready() -> void:
-	body = Art.joint(self, Vector3.ZERO)
-	for x: float in [-0.16, 0.16]:
-		var leg := Art.joint(body, Vector3(x, 0.73, 0))
-		Art.taper(leg, Vector3(0,-0.20,0), 0.104, 0.122, 0.42, NAVY)
-		Art.taper(leg, Vector3(0,-0.47,0), 0.125, 0.112, 0.26, "34383b")
-		Art.oval(leg, Vector3(0,-0.62,-0.057), Vector3(0.26,0.19,0.38), "413934")
+	var cast := CAST.instantiate()
+	for piece: Node in cast.get_children():
+		piece.owner = null
+	body = cast.get_node("KeeperBody")
+	body.reparent(self, false)
+	_build_slash_trail()
+	for side: String in ["Left", "Right"]:
+		var leg: Node3D = cast.get_node(side + "Boot")
+		leg.reparent(body, false)
+		leg.position = Vector3(-.16 if side == "Left" else .16, .73, 0)
 		legs.append(leg)
-	Art.taper(body, Vector3(0,0.92,0),0.38,0.29,0.57,COAT,10).scale.z = 0.76
-	Art.taper(body, Vector3(0,1.27,0),0.285,0.34,0.43,COAT,10).scale.z = 0.79
-	Art.taper(body, Vector3(0,1.43,0),0.45,0.22,0.22,OILSKIN,10).scale.z = 0.75
-	Art.taper(body, Vector3(0,1.086,0),0.313,0.303,0.07,LEATHER,10).scale.z = 0.77
-	Art.block(body, Vector3(-0.15,1.02,0.19),Vector3(0.21,0.16,0.11),LEATHER)
-	Art.rod(body, Vector3(-0.24,1.45,0.19), Vector3(0.22,1.08,0.17),0.045,0.038,LEATHER)
-	Art.taper(body, Vector3(0,1.52,0),0.205,0.19,0.13,"ab4b3c")
-	scarf = Art.block(body, Vector3(0.14,1.37,0.25),Vector3(0.13,0.32,0.045),"bd5343")
-	scarf.rotation.z = 0.28
-	Art.oval(body, Vector3(0,1.72,-0.025),Vector3(0.39,0.42,0.36),"d89971")
-	Art.oval(body, Vector3(0,1.77,0.055),Vector3(0.395,0.33,0.32),"574540")
-	Art.oval(body, Vector3(0,1.68,-0.195),Vector3(0.09,0.10,0.10),"d99e75")
-	for x: float in [-0.085,0.085]:
-		Art.block(body,Vector3(x,1.74,-0.19),Vector3(0.047,0.026,0.022),NAVY)
-	Art.taper(body,Vector3(0,1.866,-0.025),0.318,0.218,0.095,"244956",10).scale.z=1.04
-	Art.taper(body,Vector3(0,1.941,0.012),0.209,0.145,0.125,"315763",10)
-	Art.taper(body,Vector3(0,1.895,0.005),0.212,0.212,0.031,BRASS,10)
-	lamp_arm = _arm(-1.0)
-	sword_arm = _arm(1.0)
+	lamp_arm = cast.get_node("LeftSleeve")
+	sword_arm = cast.get_node("RightSleeve")
+	lamp_arm.reparent(body, false)
+	sword_arm.reparent(body, false)
+	lamp_arm.position = Vector3(-.326, 1.43, 0)
+	sword_arm.position = Vector3(.326, 1.43, 0)
+	scarf = cast.get_node("ScarfTail")
+	scarf.reparent(body, false)
+	scarf.position = Vector3(.135, 1.52, .125)
+	scarf.rotation.z = .28
 	pauldron = Art.taper(sword_arm,Vector3(0.035,-0.01,0),0.205,0.131,0.18,"6d8281")
 	pauldron.visible = false
-	lantern = Art.joint(lamp_arm,Vector3(-0.03,-0.44,-0.09))
-	Art.rod(lantern,Vector3(-0.076,-0.12,0),Vector3(-0.054,0,0),0.016,0.014,BRASS)
-	Art.rod(lantern,Vector3(0.076,-0.12,0),Vector3(0.054,0,0),0.016,0.014,BRASS)
-	Art.taper(lantern,Vector3(0,-0.14,0),0.148,0.079,0.065,NAVY,6)
-	flame = Art.taper(lantern,Vector3(0,-0.275,0),0.10,0.118,0.22,"ffca70",6,true)
-	Art.taper(lantern,Vector3(0,-0.415,0),0.113,0.14,0.07,NAVY,6)
-	for i in 4:
-		var v := Vector3(cos(i*PI/2.0),0,sin(i*PI/2.0))
-		Art.rod(lantern,v*0.115+Vector3.DOWN*0.38,v*0.123+Vector3.DOWN*0.17,0.012,0.013,LEATHER)
+	lantern = cast.get_node("LampCage")
+	lantern.reparent(lamp_arm, false)
+	lantern.position = Vector3(-.03, -.44, -.09)
+	cast.free()
+	flame = Art.taper(lantern,Vector3(0,-0.275,0),0.102,0.115,0.216,"ffca70",12,true)
 	light = OmniLight3D.new()
 	lantern.add_child(light)
 	light.position.y = -0.29
@@ -84,14 +75,29 @@ func _ready() -> void:
 	Art.rod(spear,Vector3(0,0,-0.9),Vector3(-0.11,0,-0.77),0.041,0.012,"acbdb8")
 	spear.visible = false
 
-func _arm(side: float) -> Node3D:
-	var arm := Art.joint(body,Vector3(0.326*side,1.43,0))
-	Art.rod(arm,Vector3(0,0,0),Vector3(0.055*side,-0.32,-0.03),0.135,0.089,COAT)
-	Art.rod(arm,Vector3(0.055*side,-0.30,-0.03),Vector3(0.025*side,-0.41,-0.085),0.09,0.076,NAVY)
-	Art.oval(arm,Vector3(0.025*side,-0.429,-0.085),Vector3(0.14,0.14,0.15),LEATHER)
-	return arm
+func _build_slash_trail() -> void:
+	var ribbon := SurfaceTool.new()
+	ribbon.begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	for i in range(19):
+		var t := i / 18.0
+		var direction := Vector3.FORWARD.rotated(Vector3.UP,lerpf(-.98,.98,t))
+		var width := .135*sin(PI*t)
+		ribbon.set_color(Color(.56,.86,.94,.5*sin(PI*t)))
+		ribbon.add_vertex(direction*(1.42-width))
+		ribbon.set_color(Color(1.0,.96,.77,.91*sin(PI*t)))
+		ribbon.add_vertex(direction*1.42)
+	var sheen := StandardMaterial3D.new()
+	sheen.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sheen.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sheen.cull_mode = BaseMaterial3D.CULL_DISABLED
+	sheen.vertex_color_use_as_albedo = true
+	slash_trail.mesh = ribbon.commit()
+	slash_trail.material_override = sheen
+	slash_trail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(slash_trail)
+	slash_trail.hide()
 
-func animate(delta: float, speed: float, mode: int, slash: float, rolling: float, hurt: float, upgraded: bool, armored: bool) -> void:
+func animate(delta: float, speed: float, mode: int, slash: float, rolling: float, hurt: float, upgraded: bool, armored: bool, combo_step := 0, counter := false) -> void:
 	step_phase += delta*(4.0 + speed*1.65)
 	var stride := minf(speed*0.18,1.0)
 	var wave := sin(step_phase)*stride
@@ -100,19 +106,30 @@ func animate(delta: float, speed: float, mode: int, slash: float, rolling: float
 	body.position.y = 0.035*absf(wave) - sin(rolling*PI)*0.33
 	body.rotation.x = -sin(rolling*PI)*0.95
 	body.rotation.z = sin(hurt*PI)*0.13
+	body.rotation.y = 0
 	scarf.rotation.x = wave*0.23 + stride*0.15
 	lamp_arm.rotation.x = lerpf(lamp_arm.rotation.x, 1.31 if mode==2 else 0.16-wave*0.23, 1-exp(-delta*15))
 	lantern.rotation.x = -lamp_arm.rotation.x - wave*0.11
 	sword_arm.rotation.x = 0.15 + wave*0.31
 	sword_arm.rotation.y = -0.56
 	sword_arm.rotation.z = 0.17
+	slash_trail.visible = slash>0.34 and slash<0.71
 	if slash>0:
 		var progress := 1.0-slash
 		var cut := smoothstep(0.20, 0.58, progress)
 		var rest := smoothstep(0.61, 1.0, progress)
 		sword_arm.rotation.x = lerpf(0.68,0.14,rest)
-		sword_arm.rotation.y = lerpf(lerpf(-1.18,1.05,cut),-0.56,rest)
+		var sweep := lerpf(-1.18,1.05,cut) * (-1.0 if combo_step==1 else 1.0)
+		sword_arm.rotation.y = lerpf(sweep,-0.56,rest)
 		sword_arm.rotation.z = lerpf(0.76,0.10,rest)
+		body.rotation.y = sweep*(.52 if combo_step==2 or counter else .26)*(1-rest)
+		slash_trail.position.y = 1.03 if combo_step!=1 else 1.19
+		slash_trail.rotation = Vector3(-.14,sweep*.64,.32 if combo_step==1 else -.28)
+		var radius := (1.29 if upgraded else 1.0) * (1.16 if combo_step==2 or counter else 1.0)
+		slash_trail.scale = Vector3.ONE*radius
+		if combo_step==2 or counter:
+			sword_arm.rotation.x += (1.0-cut)*1.24
+			body.rotation.x += lerpf(-.20,.28,cut)*(1.0-rest)
 	blade.visible = not upgraded
 	spear.visible = upgraded
 	pauldron.visible = armored

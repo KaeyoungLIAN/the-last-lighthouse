@@ -1,0 +1,60 @@
+[remap]
+
+importer="scene"
+importer_version=1
+type="PackedScene"
+uid="uid://dr47hp3i1tf3t"
+path="res://.godot/imported/pilot.glb-98b6dfbebd5d5f9a9cfb31c0fb08f5ec.scn"
+
+[deps]
+
+source_file="res://art/greybay/pilot.glb"
+dest_files=["res://.godot/imported/pilot.glb-98b6dfbebd5d5f9a9cfb31c0fb08f5ec.scn"]
+
+[params]
+
+nodes/root_type=""
+nodes/root_name=""
+nodes/root_script=null
+nodes/apply_root_scale=true
+nodes/root_scale=1.0
+nodes/import_as_skeleton_bones=false
+nodes/use_name_suffixes=true
+nodes/use_node_type_suffixes=true
+meshes/ensure_tangents=true
+meshes/generate_lods=true
+meshes/create_shadow_meshes=true
+meshes/light_baking=1
+meshes/lightmap_texel_size=0.2
+meshes/force_disable_compression=false
+skins/use_named_skins=true
+animation/import=true
+animation/fps=30
+animation/trimming=false
+animation/remove_immutable_tracks=true
+animation/import_rest_as_RESET=false
+import_script/path=""
+materials/extract=0
+materials/extract_format=0
+materials/extract_path=""
+_subresources={
+"materials": {
+"MAT_HoneyGlass": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://art/greybay/MAT_Harbor_WindowGlass.tres",
+"use_external/path": "res://art/greybay/MAT_Harbor_WindowGlass.tres"
+},
+"MAT_LimewashAndSlate": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://art/greybay/MAT_Greybay_Mineral.tres",
+"use_external/path": "res://art/greybay/MAT_Greybay_Mineral.tres"
+},
+"MAT_OiledTimber": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://art/greybay/MAT_Saltworn_Timber.tres",
+"use_external/path": "res://art/greybay/MAT_Saltworn_Timber.tres"
+}
+}
+}
+gltf/naming_version=2
+gltf/embedded_image_handling=1

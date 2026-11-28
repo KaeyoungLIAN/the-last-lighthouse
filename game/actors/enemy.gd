@@ -4,6 +4,8 @@ signal fallen(kind: String)
 
 const Art = preload("actor_art.gd")
 const Creature = preload("creature_model.gd")
+const AttackWarning = preload("attack_warning.gd")
+const STRIKE_TIME := .34
 enum Intent { ROAM, CHASE, WINDUP, STRIKE, RECOVER, REPELLED, RETURN }
 
 var kind := "hound"
@@ -21,10 +23,13 @@ var intent := Intent.ROAM
 var time_left := 0.0
 var shell_open := 0.0
 var model := Creature.new()
+var warning := AttackWarning.new()
 var _sight_radius := 10.0
 var _light_time := 0.0
 var _hit_stun := 0.0
 var _strike_dir := Vector3.FORWARD
+var _strike_origin := Vector3.ZERO
+var _charge_duration := 1.0
 var _dealt := false
 var _second_attack := false
 var _patrol_phase := 0.0
@@ -76,6 +81,7 @@ func setup(species: String, keeper, world, origin: Vector3) -> void:
 	hp = max_hp
 	add_child(model)
 	model.build(kind)
+	add_child(warning)
 	Art.capsule(self,hit_radius,3.1 if kind=="boss" else maxf(1.45,hit_radius*2))
 	_patrol_phase = fmod(absf(home.x*0.55+home.z*0.71),TAU)
 	_configured = true
@@ -85,21 +91,39 @@ func break_shell() -> void:
 		shell_open = 4.2
 		time_left = 0.95
 		intent = Intent.RECOVER
+		_second_attack = false
+		warning.hide()
 
-func receive_hit(amount: float) -> void:
-	if hp<=0 or is_queued_for_deletion():
+func stagger(duration: float) -> void:
+	if hp<=0 or (kind=="boss" and shell_open<=0):
 		return
+	_second_attack = false
+	intent = Intent.RECOVER
+	time_left = duration
+	warning.hide()
+
+func receive_hit(amount: float, heavy := false, attacker := Vector3.INF) -> float:
+	if hp<=0 or is_queued_for_deletion():
+		return 0.0
 	if kind=="boss" and shell_open<=0:
 		_hit_stun = 0.08
-		return
+		return 0.0
+	if kind=="crab" and not heavy and attacker!=Vector3.INF and intent in [Intent.CHASE,Intent.WINDUP]:
+		var incoming := (attacker-global_position).slide(Vector3.UP).normalized()
+		if incoming.dot(-global_basis.z) > .45:
+			amount = ceilf(amount * .42)
+	var before := hp
 	hp = maxf(0,hp-amount)
 	_hit_stun = 0.24
 	if hp<=0:
 		remove_from_group("enemies")
 		fallen.emit(kind)
 		queue_free()
+	elif heavy:
+		stagger(.92)
 	elif intent==Intent.ROAM:
 		intent = Intent.CHASE
+	return before-hp
 
 func _physics_process(delta: float) -> void:
 	if not _configured or hp<=0 or not is_instance_valid(hero):
@@ -142,23 +166,31 @@ func _physics_process(delta: float) -> void:
 			_face(toward,delta)
 			if distance<=reach and _has_attack_slot() and hero.has_clear_view(global_position+Vector3.UP):
 				_begin_windup(toward)
+			elif distance < reach+.7 and not _has_attack_slot():
+				# Waiting attackers circle instead of standing inside the lead attacker.
+				travel = toward.cross(Vector3.UP) * speed * (.65 if _patrol_phase < PI else -.65)
 			else:
 				travel = toward*speed
 		Intent.WINDUP:
 			if time_left<=0:
 				intent=Intent.STRIKE
-				time_left=0.34
+				time_left=STRIKE_TIME
 				_dealt=false
 		Intent.STRIKE:
-			if kind in ["hound","fin","elite"] or (kind=="boss" and hp<=max_hp*0.5):
-				travel = _strike_dir*(4.3 if kind!="boss" else 5.3)
-			if not _dealt and distance<=reach+0.5 and height_gap<2.4 and _strike_dir.dot(toward)>_attack_cone() and hero.has_clear_view(global_position+Vector3.UP):
-				hero.receive_hit(damage)
+			travel = _strike_dir * _lunge_speed()
+			var in_arc: Vector3 = (hero.global_position-_strike_origin).slide(Vector3.UP)
+			var advanced := maxf(0,(global_position-_strike_origin).dot(_strike_dir))
+			if not _dealt and in_arc.length()<=reach+.5+advanced and height_gap<2.4 and _strike_dir.dot(in_arc.normalized())>=_attack_cone() and hero.has_clear_view(global_position+Vector3.UP):
 				_dealt = true
-			if time_left<=0:
+				if hero.receive_hit(damage,self):
+					stagger(.84)
+					travel = Vector3.ZERO
+			if intent==Intent.STRIKE and time_left<=0:
 				intent=Intent.RECOVER
 				time_left=0.41 if _second_attack else 1.15
 		Intent.RECOVER:
+			if kind=="lizard" and distance<reach*.6 and time_left>.48:
+				travel = -toward * speed * .7
 			if time_left<=0:
 				if _second_attack and distance<=reach+1:
 					_second_attack=false
@@ -170,11 +202,14 @@ func _physics_process(delta: float) -> void:
 			travel = -toward*2.4
 			if time_left<=0:
 				intent=Intent.CHASE
-	if travel.length_squared()>0.01 and intent not in [Intent.STRIKE,Intent.REPELLED]:
+	if travel.length_squared()>0.01 and intent not in [Intent.STRIKE,Intent.REPELLED,Intent.RECOVER]:
 		_face(travel.normalized(),delta)
 	_move(travel,delta)
-	var anticipation := (1.0-time_left/windup) if intent==Intent.WINDUP else 0.0
-	var strike_pose := time_left/0.34 if intent==Intent.STRIKE else 0.0
+	var anticipation := (1.0-time_left/_charge_duration) if intent==Intent.WINDUP else 0.0
+	var strike_pose := time_left/STRIKE_TIME if intent==Intent.STRIKE else 0.0
+	warning.visible = intent==Intent.WINDUP or intent==Intent.STRIKE
+	if warning.visible:
+		warning.set_charge(anticipation if intent==Intent.WINDUP else 1.0)
 	model.pose(delta,velocity.length(),clampf(anticipation,0.035,1.0) if intent==Intent.WINDUP else 0.0,strike_pose,_hit_stun/0.24,shell_open>0)
 
 func _update_light(delta: float, toward: Vector3, distance: float, height_gap: float) -> void:
@@ -201,6 +236,11 @@ func _attack_cone() -> float:
 		return 0.89
 	return -0.05 if kind in ["boss","crab"] else 0.32
 
+func _lunge_speed() -> float:
+	if kind in ["hound","fin","elite"]:
+		return 4.3
+	return 5.3 if kind=="boss" and hp<=max_hp*.5 else 0.0
+
 func _has_attack_slot() -> bool:
 	var count := 0
 	for peer in get_tree().get_nodes_in_group("enemies"):
@@ -212,7 +252,10 @@ func _begin_windup(toward: Vector3, followup := false) -> void:
 	intent = Intent.WINDUP
 	_strike_dir = toward if toward.length_squared()>0.001 else -global_basis.z
 	rotation.y = atan2(-_strike_dir.x,-_strike_dir.z)
-	time_left = windup*(0.67 if followup else 1.0)
+	_strike_origin = global_position
+	_charge_duration = windup*(0.67 if followup else 1.0)
+	time_left = _charge_duration
+	warning.place(_strike_origin,_strike_dir,reach+.5+_lunge_speed()*STRIKE_TIME,acos(_attack_cone()),world_ref)
 	if not followup:
 		_second_attack=kind=="elite" or (kind=="boss" and hp<max_hp*0.5)
 

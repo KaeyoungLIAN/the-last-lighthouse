@@ -1,4 +1,5 @@
 extends Node3D
+const Survey := preload("res://world/island_survey.gd")
 ## Landmark glints remain small in the landscape. Only nearby captions are revealed.
 var sites: Dictionary = {}
 
@@ -50,7 +51,7 @@ func refresh(pos: Vector3, consumed: Array, indoor: bool, time: float) -> void:
 	for id in sites:
 		var s: Dictionary = sites[id]
 		var obj: Node3D = s.node
-		var inside := obj.position.z > 100.0
+		var inside := Survey.in_mirror_room(Vector2(obj.position.x,obj.position.z))
 		obj.visible = inside == indoor and not consumed.has(id)
 		if not obj.visible:
 			continue

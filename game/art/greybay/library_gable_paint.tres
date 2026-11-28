@@ -1,0 +1,16 @@
+[gd_resource type="QuadMesh" format=3]
+
+[ext_resource type="Texture2D" path="res://art/greybay/library_tidal_frontispiece.svg" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="frontispiece"]
+resource_name = "MAT_Library_PaintedFrontispiece"
+transparency = 2
+alpha_scissor_threshold = 0.42
+albedo_texture = ExtResource("1")
+roughness = 0.94
+metallic_specular = 0.17
+texture_filter = 5
+
+[resource]
+material = SubResource("frontispiece")
+size = Vector2(5.10, 1.76)
